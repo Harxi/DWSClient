@@ -1,4 +1,4 @@
-import aiohttp, asyncio
+import aiohttp, asyncio, shlex
 import op
 
 class Presence:
@@ -19,10 +19,12 @@ class Presence:
         }
 
 class Client:
-    def __init__(self, token, presence: Presence = None):
+    def __init__(self, token, prefix: str, presence: Presence = None):
         self.interval = None
         self.sequence = None
         self.session = None
+        self.prefix = prefix
+        self.commands = {}
         
         self.auth = {
             "token": token,	
@@ -33,7 +35,12 @@ class Client:
             },
             "intents": 32767
         } | presence.json() if isinstance(presence, Presence) else {}
-
+        
+    def command(self):
+        def wrapper(function):
+        	self.commands[function.__name__] = function
+        return wrapper
+	
     def opcode(self, opcode: int, payload) -> dict:
         return {
             "op": opcode,
@@ -48,17 +55,24 @@ class Client:
                 event = data["t"]
                 if event == "READY":
                     self.session = data["d"]["session_id"]
-                    self.id = data["d"]["user"]["id"]
-                    self.bot = data["d"]["user"]["bot"]
+                    self.user = data["d"]["user"]
+                    self.headers = {"Authorization": f'{"Bot" if self.user["bot"] else "Bearer"} {self.auth["token"]}'}
+                    print("+")
                     
                 if event == "MESSAGE_CREATE":
-                    content = data["d"]["content"]
-                    id = data["d"]["author"]["id"]
-                    if id != self.id:
-                        await self.send("Hi", data['d']['channel_id'])
+                    msg = data["d"]
+                    content = msg["content"]		
+                    if "bot" not in msg["author"]:
+                        if content.startswith(self.prefix):
+                            command = shlex.split(content[len(self.prefix):len(content)])
+                            if command[0] in self.commands:
+                                await self.commands[command[0]](msg, *command[1:len(command)])
+
+    async def fetch_user(self, user: int):
+        return await (await self.__session.get(f"https://discord.com/api/v9/users/{user}", headers = self.headers)).json()
     
     async def send(self, content: str, channel_id: int):
-    	await self.__session.post(f"https://discord.com/api/v9/channels/{channel_id}/messages", headers = {"Authorization": f'{"Bot" if self.bot else "Bearer"} {self.auth["token"]}'}, json = {"content": content, "tts": "false", "flags": "0"})
+        await self.__session.post(f"https://discord.com/api/v9/channels/{channel_id}/messages", headers = self.headers, json = {"content": content, "tts": "false", "flags": "0"})
                     
     async def heartbeat(self):
         while self.interval is not None:
