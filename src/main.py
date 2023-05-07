@@ -64,9 +64,9 @@ class Client:
                     content = msg["content"]		
                     if "bot" not in msg["author"]:
                         if content.startswith(self.prefix):
-                            command = shlex.split(content[len(self.prefix):len(content)])
+                            command = shlex.split(content[len(self.prefix):])
                             if command[0] in self.commands:
-                                await self.commands[command[0]](msg, *command[1:len(command)])
+                                await self.commands[command[0]](msg, *command[1:])
 
     async def fetch_user(self, user: int):
         return await (await self.__session.get(f"https://discord.com/api/v9/users/{user}", headers = self.headers)).json()
