@@ -26,7 +26,7 @@ class Client:
         self.session = None
         self.connected = False
         self.prefix = prefix
-        self.channel = "1058841201941413898"
+        self.channel = "your channel here"
         self.commands = {}
         
         self.auth = {
@@ -118,6 +118,6 @@ class Client:
         self.loop.run_until_complete(self.main())
         
 
-client = Client("MTA0MDk0MTg2MjE4NzQzODI1Mg.GBBmQK.R_505Li6wmeLgXnUFLaZpyxaDLAU4KscxsS27Q", "!")
+client = Client("token", "!")
 
 client.run(True)
