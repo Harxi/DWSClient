@@ -21,12 +21,12 @@ class Presence:
         }
 
 class Client:
-    def __init__(self, token, prefix: str, bot: bool, presence: Presence = None):
+    def __init__(self, token, prefix: str, presence: Presence = None):
         self.interval = None
         self.sequence = None
         self.session = None
         self.prefix = prefix
-        self.channel = 1058841201941413898
+        self.channel = None
         self.commands = {}
         
         self.auth = {
@@ -38,7 +38,6 @@ class Client:
             },
             "intents": 32767
         } | presence.json() if isinstance(presence, Presence) else {}
-        self.headers = {"Authorization": f'{"Bot" if bot else "Bearer"} {token}'}
         
     def command(self):
         def wrapper(function):
@@ -110,6 +109,7 @@ class Client:
                 await self.ws.close()
             await asyncio.sleep(5)
     
-    def run(self):
+    def run(self, bot: bool):
+        self.headers = {"Authorization": f'{"Bot" if bot else "Bearer"} {self.auth["token"]}'}
         self.loop = asyncio.new_event_loop()
         self.loop.run_until_complete(self.main())
