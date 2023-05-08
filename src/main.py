@@ -1,4 +1,6 @@
-import aiohttp, asyncio, shlex
+from aioconsole import ainput
+
+import aiohttp, asyncio, shlex, threading
 import op
 
 class Presence:
@@ -19,11 +21,12 @@ class Presence:
         }
 
 class Client:
-    def __init__(self, token, prefix: str, presence: Presence = None):
+    def __init__(self, token, prefix: str, bot: bool, presence: Presence = None):
         self.interval = None
         self.sequence = None
         self.session = None
         self.prefix = prefix
+        self.channel = 1058841201941413898
         self.commands = {}
         
         self.auth = {
@@ -35,6 +38,7 @@ class Client:
             },
             "intents": 32767
         } | presence.json() if isinstance(presence, Presence) else {}
+        self.headers = {"Authorization": f'{"Bot" if bot else "Bearer"} {token}'}
         
     def command(self):
         def wrapper(function):
@@ -46,7 +50,11 @@ class Client:
             "op": opcode,
             "d": payload
         }
-            
+    
+    async def iteration(self):
+        answer = await ainput("Write: ")
+        await self.send(answer, self.channel)
+	    
     async def event(self):
         async for msg in self.ws:
             data = msg.json()
@@ -56,13 +64,19 @@ class Client:
                 if event == "READY":
                     self.session = data["d"]["session_id"]
                     self.user = data["d"]["user"]
-                    self.headers = {"Authorization": f'{"Bot" if self.user["bot"] else "Bearer"} {self.auth["token"]}'}
-                    print("+")
                     
+                    print(f'Connected to {self.user["username"]}#{self.user["discriminator"]}')
+                    await asyncio.create_task(self.iteration())       
+                
                 if event == "MESSAGE_CREATE":
                     msg = data["d"]
-                    content = msg["content"]		
+                    content = msg["content"]
                     if "bot" not in msg["author"]:
+                        msg["author"]["bot"] = False
+                    
+                    print(f'[{"BOT" if msg["author"]["bot"] else "USER" }] {"YOU" if self.user["id"] == msg["author"]["id"] else msg["author"]["username"] + "#" + msg["author"]["discriminator"]} > {content}')
+                    
+                    if not msg["author"]["bot"]:
                         if content.startswith(self.prefix):
                             command = shlex.split(content[len(self.prefix):])
                             if command[0] in self.commands:
@@ -85,7 +99,9 @@ class Client:
                 async with aiohttp.ClientSession() as self.__session:
                     async with self.__session.ws_connect("wss://gateway.discord.gg/?v=9&encoding=json", max_msg_size = None) as self.ws:
                         await self.ws.send_json(self.opcode(op.IDENTIFY, self.auth))
+                        
                         await asyncio.gather(self.heartbeat(), self.event())
+                        
                         
             except aiohttp.ClientConnectionError:
                 print("Reconnecting...")
