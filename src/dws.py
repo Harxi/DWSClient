@@ -1,7 +1,7 @@
 from aioconsole import aprint, ainput
 
 import aiohttp, asyncio, shlex, threading
-import op
+from op import OPs as op
 
 class Activity:
     def __init__(self, description: str = "", type: int = 0):
